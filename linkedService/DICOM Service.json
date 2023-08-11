@@ -1,0 +1,14 @@
+{
+	"name": "DICOM Service",
+	"properties": {
+		"description": "IDP demo 1",
+		"annotations": [],
+		"type": "RestService",
+		"typeProperties": {
+			"url": "https://idpdemo1ws-idpdemo1dicom.dicom.azurehealthcareapis.com",
+			"enableServerCertificateValidation": true,
+			"authenticationType": "ManagedServiceIdentity",
+			"aadResourceId": "https://dicom.healthcareapis.azure.com"
+		}
+	}
+}
