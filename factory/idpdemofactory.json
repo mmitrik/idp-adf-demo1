@@ -1,0 +1,9 @@
+{
+	"name": "idpdemofactory",
+	"location": "eastus2",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "557ff903-8c9c-4d7d-a708-1f3029dfd3f7",
+		"tenantId": "2a53e02f-205c-4536-999f-6fe19807994f"
+	}
+}
