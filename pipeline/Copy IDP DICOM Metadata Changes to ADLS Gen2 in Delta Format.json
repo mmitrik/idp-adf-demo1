@@ -1,0 +1,279 @@
+{
+	"name": "Copy IDP DICOM Metadata Changes to ADLS Gen2 in Delta Format",
+	"properties": {
+		"activities": [
+			{
+				"name": "Update Delta Tables",
+				"description": "Read the change feed in batches and synchronize any changes with Delta Tables.",
+				"type": "Until",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@not(variables('Continue'))",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Process Batch",
+							"description": "Update the Delta Tables using a page of data from the Change Feed.",
+							"type": "ExecuteDataFlow",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": true,
+								"secureInput": true
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataflow": {
+									"referenceName": "Update IDP DICOM Delta Tables",
+									"type": "DataFlowReference",
+									"parameters": {
+										"Offset": {
+											"value": "@int(variables('CurrentOffset'))",
+											"type": "Expression"
+										},
+										"Limit": {
+											"value": "@pipeline().parameters.BatchSize",
+											"type": "Expression"
+										},
+										"ApiVersion": {
+											"value": "@pipeline().parameters.ApiVersion",
+											"type": "Expression"
+										},
+										"StartTime": {
+											"value": "'@{pipeline().parameters.StartTime}'",
+											"type": "Expression"
+										},
+										"EndTime": {
+											"value": "'@{pipeline().parameters.EndTime}'",
+											"type": "Expression"
+										},
+										"ContainerName": {
+											"value": "'@{pipeline().parameters.ContainerName}'",
+											"type": "Expression"
+										},
+										"InstanceTablePath": {
+											"value": "'@{pipeline().parameters.InstanceTablePath}'",
+											"type": "Expression"
+										},
+										"SeriesTablePath": {
+											"value": "'@{pipeline().parameters.SeriesTablePath}'",
+											"type": "Expression"
+										},
+										"StudyTablePath": {
+											"value": "'@{pipeline().parameters.StudyTablePath}'",
+											"type": "Expression"
+										},
+										"RetentionHours": {
+											"value": "@pipeline().parameters.RetentionHours",
+											"type": "Expression"
+										}
+									}
+								},
+								"compute": {
+									"coreCount": 8,
+									"computeType": "General"
+								},
+								"traceLevel": "Fine"
+							}
+						},
+						{
+							"name": "Determine Continuation",
+							"description": "Check the previous activity for metrics related to the instance table sink to determine whether processing should continue.",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Process Batch",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@contains(activity('Process Batch').output.runStatus.metrics, 'instanceTable')",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Complete Processing",
+										"description": "Signal that processing should stop because there are no more changes.",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "Continue",
+											"value": {
+												"value": "@bool('false')",
+												"type": "Expression"
+											}
+										}
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "Check Rows",
+										"description": "Update the continuation variable based on the number of rows processed in the last batch.",
+										"type": "SetVariable",
+										"dependsOn": [],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "Continue",
+											"value": {
+												"value": "@greater(activity('Process Batch').output.runStatus.metrics.instanceTable.rowsWritten, 0)",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Add Limit to Offset",
+										"description": "Add the limit to the current offset.",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Check Rows",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "Temp",
+											"value": {
+												"value": "@string(add(int(variables('CurrentOffset')), pipeline().parameters.BatchSize))",
+												"type": "Expression"
+											}
+										}
+									},
+									{
+										"name": "Update Offset",
+										"description": "Update the current offset based on the newly computed value.",
+										"type": "SetVariable",
+										"dependsOn": [
+											{
+												"activity": "Add Limit to Offset",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"variableName": "CurrentOffset",
+											"value": {
+												"value": "@variables('Temp')",
+												"type": "Expression"
+											}
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "Cancel Processing",
+							"description": "Signal that processing should stop because there was a problem processing a batch.",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Process Batch",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "Continue",
+								"value": {
+									"value": "@bool('false')",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"timeout": "0.12:00:00"
+				}
+			}
+		],
+		"parameters": {
+			"BatchSize": {
+				"type": "int",
+				"defaultValue": 200
+			},
+			"ApiVersion": {
+				"type": "int",
+				"defaultValue": 2
+			},
+			"StartTime": {
+				"type": "string",
+				"defaultValue": "0001-01-01T00:00:00Z"
+			},
+			"EndTime": {
+				"type": "string",
+				"defaultValue": "9999-12-31T23:59:59Z"
+			},
+			"ContainerName": {
+				"type": "string",
+				"defaultValue": "dicom"
+			},
+			"InstanceTablePath": {
+				"type": "string",
+				"defaultValue": "instance"
+			},
+			"SeriesTablePath": {
+				"type": "string",
+				"defaultValue": "series"
+			},
+			"StudyTablePath": {
+				"type": "string",
+				"defaultValue": "study"
+			},
+			"RetentionHours": {
+				"type": "int",
+				"defaultValue": 720
+			}
+		},
+		"variables": {
+			"CurrentOffset": {
+				"type": "String",
+				"defaultValue": "0"
+			},
+			"Temp": {
+				"type": "String",
+				"defaultValue": "0"
+			},
+			"Continue": {
+				"type": "Boolean",
+				"defaultValue": false
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-06-23T19:54:06Z"
+	}
+}
