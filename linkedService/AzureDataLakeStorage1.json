@@ -1,0 +1,11 @@
+{
+	"name": "AzureDataLakeStorage1",
+	"properties": {
+		"description": "IDP demo 1",
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://idpdemo1storage.dfs.core.windows.net/"
+		}
+	}
+}
