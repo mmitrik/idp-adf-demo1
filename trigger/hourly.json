@@ -7,6 +7,10 @@
 			"pipelineReference": {
 				"referenceName": "Copy IDP DICOM Metadata Changes to ADLS Gen2 in Delta Format",
 				"type": "PipelineReference"
+			},
+			"parameters": {
+				"StartTime": "@formatDateTime(trigger().outputs.windowStartTime)",
+				"EndTime": "@formatDateTime(trigger().outputs.windowEndTime)"
 			}
 		},
 		"type": "TumblingWindowTrigger",
