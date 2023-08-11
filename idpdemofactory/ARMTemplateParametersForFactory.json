@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "idpdemofactory"
+		},
+		"AzureDataLakeStorage1_properties_typeProperties_url": {
+			"value": "https://idpdemo1storage.dfs.core.windows.net/"
+		},
+		"DICOM Service_properties_typeProperties_url": {
+			"value": "https://idpdemo1ws-idpdemo1dicom.dicom.azurehealthcareapis.com"
+		},
+		"DICOM Service_properties_typeProperties_aadResourceId": {
+			"value": "https://dicom.healthcareapis.azure.com"
+		},
+		"hourly_properties_pipeline_parameters_StartTime": {
+			"value": "@formatDateTime(trigger().outputs.windowStartTime)"
+		},
+		"hourly_properties_pipeline_parameters_EndTime": {
+			"value": "@formatDateTime(trigger().outputs.windowEndTime)"
+		}
+	}
+}
